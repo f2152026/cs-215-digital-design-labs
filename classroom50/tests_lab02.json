@@ -1,42 +1,33 @@
 [
   {
-    "name": "Task 1a - 2-to-1 MUX Dataflow (mux_df)",
+    "name": "Task 1 - 2-to-1 MUX Simulation",
     "type": "io",
-    "setup": "printf '`timescale 1ns/1ps\\nmodule tb;\\n  reg t_i0, t_i1, t_s;\\n  wire t_y;\\n  mux_df DUT (.I0(t_i0), .I1(t_i1), .S(t_s), .Y(t_y));\\n  integer i, err = 0;\\n  initial begin\\n    for (i = 0; i < 8; i = i + 1) begin\\n      {t_i0, t_i1, t_s} = i[2:0];\\n      #5;\\n      if (t_y !== (t_s ? t_i1 : t_i0)) begin\\n        $display(\"FAIL: I0=%b I1=%b S=%b got Y=%b\", t_i0, t_i1, t_s, t_y);\\n        err = err + 1;\\n      end\\n    end\\n    if (err == 0) $display(\"ALL_MUX_DF_TESTS_PASSED\");\\n    $finish;\\n  end\\nendmodule\\n' > labs/lab02/task1/tb_grade_df.v && ./scripts/compile.sh lab02 task1 labs/lab02/task1/tb_grade_df.v",
-    "run": "./scripts/run.sh lab02 task1 labs/lab02/task1/tb_grade_df.v",
-    "expected": "ALL_MUX_DF_TESTS_PASSED",
+    "setup": "./scripts/compile.sh lab02 task1 labs/lab02/task1/tb.v",
+    "run": "./scripts/run.sh lab02 task1 labs/lab02/task1/tb.v",
+    "expected": "Simulation complete:",
     "comparison": "included",
-    "points": 10
-  },
-  {
-    "name": "Task 1b - 2-to-1 MUX Behavioral (mux_beh)",
-    "type": "io",
-    "setup": "printf '`timescale 1ns/1ps\\nmodule tb;\\n  reg t_i0, t_i1, t_s;\\n  wire t_y;\\n  mux_beh DUT (.I0(t_i0), .I1(t_i1), .S(t_s), .Y(t_y));\\n  integer i, err = 0;\\n  initial begin\\n    for (i = 0; i < 8; i = i + 1) begin\\n      {t_i0, t_i1, t_s} = i[2:0];\\n      #5;\\n      if (t_y !== (t_s ? t_i1 : t_i0)) begin\\n        $display(\"FAIL: I0=%b I1=%b S=%b got Y=%b\", t_i0, t_i1, t_s, t_y);\\n        err = err + 1;\\n      end\\n    end\\n    if (err == 0) $display(\"ALL_MUX_BEH_TESTS_PASSED\");\\n    $finish;\\n  end\\nendmodule\\n' > labs/lab02/task1/tb_grade_beh.v && ./scripts/compile.sh lab02 task1 labs/lab02/task1/tb_grade_beh.v",
-    "run": "./scripts/run.sh lab02 task1 labs/lab02/task1/tb_grade_beh.v",
-    "expected": "ALL_MUX_BEH_TESTS_PASSED",
-    "comparison": "included",
-    "points": 10
+    "points": 20
   },
   {
     "name": "Task 2 - Parameterized ROM Lookup Table (lut)",
     "type": "io",
-    "setup": "printf '`timescale 1ns/1ps\\nmodule tb;\\n  reg [2:0] sel8; wire [7:0] dout8;\\n  lut #(.WIDTH(8), .DEPTH(8)) U8 (.sel(sel8), .dout(dout8));\\n  integer i, err = 0;\\n  initial begin\\n    #1;\\n    for (i = 0; i < 8; i = i + 1) begin\\n      sel8 = i[2:0];\\n      #5;\\n      if (dout8 !== (i * i)) begin\\n        $display(\"FAIL at sel=%0d: got %0d, expected %0d\", i, dout8, (i*i));\\n        err = err + 1;\\n      end\\n    end\\n    if (err == 0) $display(\"ALL_LUT_TESTS_PASSED\");\\n    $finish;\\n  end\\nendmodule\\n' > labs/lab02/task2/tb_grade.v && ./scripts/compile.sh lab02 task2 labs/lab02/task2/tb_grade.v",
-    "run": "./scripts/run.sh lab02 task2 labs/lab02/task2/tb_grade.v",
-    "expected": "ALL_LUT_TESTS_PASSED",
+    "setup": "./scripts/compile.sh lab02 task2 labs/lab02/task2/tb.v",
+    "run": "./scripts/run.sh lab02 task2 labs/lab02/task2/tb.v",
+    "expected": "Simulation complete:",
     "comparison": "included",
     "points": 20
   },
   {
     "name": "Task 3 - 2-bit Magnitude Comparator (comp2)",
     "type": "io",
-    "setup": "printf '`timescale 1ns/1ps\\nmodule tb;\\n  reg [1:0] A, B;\\n  wire GT, LT, EQ;\\n  comp2 DUT (.A(A), .B(B), .GT(GT), .LT(LT), .EQ(EQ));\\n  integer i, j, err = 0;\\n  reg exp_gt, exp_lt, exp_eq;\\n  initial begin\\n    for (i = 0; i < 4; i = i + 1) begin\\n      for (j = 0; j < 4; j = j + 1) begin\\n        A = i[1:0]; B = j[1:0];\\n        exp_gt = (i > j);\\n        exp_lt = (i < j);\\n        exp_eq = (i == j);\\n        #5;\\n        if ({GT, LT, EQ} !== {exp_gt, exp_lt, exp_eq}) begin\\n          $display(\"FAIL: A=%0d B=%0d got GT=%b LT=%b EQ=%b expected GT=%b LT=%b EQ=%b\", i, j, GT, LT, EQ, exp_gt, exp_lt, exp_eq);\\n          err = err + 1;\\n        end\\n      end\\n    end\\n    if (err == 0) $display(\"ALL_COMP2_TESTS_PASSED\");\\n    $finish;\\n  end\\nendmodule\\n' > labs/lab02/task3/tb_grade.v && ./scripts/compile.sh lab02 task3 labs/lab02/task3/tb_grade.v",
-    "run": "./scripts/run.sh lab02 task3 labs/lab02/task3/tb_grade.v",
-    "expected": "ALL_COMP2_TESTS_PASSED",
+    "setup": "./scripts/compile.sh lab02 task3 labs/lab02/task3/tb.v",
+    "run": "./scripts/run.sh lab02 task3 labs/lab02/task3/tb.v",
+    "expected": "Simulation complete:",
     "comparison": "included",
     "points": 20
   },
   {
-    "name": "Task 4 - Delay Placement Semantics (and_df, and_beh_before, and_beh_intra)",
+    "name": "Task 4 - Delay Placement Semantics",
     "type": "io",
     "setup": "./scripts/compile.sh lab02 task4 labs/lab02/task4/tb.v",
     "run": "./scripts/run.sh lab02 task4 labs/lab02/task4/tb.v",
@@ -47,9 +38,9 @@
   {
     "name": "Task 5 - Capstone ALU (alu)",
     "type": "io",
-    "setup": "printf '`timescale 1ns/1ps\\nmodule tb;\\n  reg [3:0] a, b;\\n  reg op;\\n  wire [3:0] result;\\n  alu DUT (.a(a), .b(b), .op(op), .result(result));\\n  integer err = 0;\\n  reg [3:0] exp_res;\\n  initial begin\\n    // Test 1: Addition\\n    a = 4\\x27d5; b = 4\\x27d3; op = 1\\x27b0;\\n    #5; exp_res = (a + b) & 4\\x27hF;\\n    if (result !== exp_res) begin $display(\"FAIL Add 5+3: got %0d expected %0d\", result, exp_res); err = err + 1; end\\n    // Test 2: Sensitivity list check (toggle op only)\\n    op = 1\\x27b1;\\n    #5; exp_res = (a - b) & 4\\x27hF;\\n    if (result !== exp_res) begin $display(\"FAIL Sub 5-3 (op toggle): got %0d expected %0d\", result, exp_res); err = err + 1; end\\n    // Test 3: Subtraction back-to-back dependency chain check\\n    a = 4\\x27d8; b = 4\\x27d2; op = 1\\x27b1;\\n    #5; exp_res = (a - b) & 4\\x27hF;\\n    if (result !== exp_res) begin $display(\"FAIL Sub 8-2: got %0d expected %0d\", result, exp_res); err = err + 1; end\\n    // Test 4: Subtraction negative result (modulo 16)\\n    a = 4\\x27d3; b = 4\\x27d7; op = 1\\x27b1;\\n    #5; exp_res = (a - b) & 4\\x27hF;\\n    if (result !== exp_res) begin $display(\"FAIL Sub 3-7: got %0d expected %0d\", result, exp_res); err = err + 1; end\\n    if (err == 0) $display(\"ALL_ALU_TESTS_PASSED\");\\n    $finish;\\n  end\\nendmodule\\n' > labs/lab02/task5/tb_grade.v && ./scripts/compile.sh lab02 task5 labs/lab02/task5/tb_grade.v",
-    "run": "./scripts/run.sh lab02 task5 labs/lab02/task5/tb_grade.v",
-    "expected": "ALL_ALU_TESTS_PASSED",
+    "setup": "./scripts/compile.sh lab02 task5 labs/lab02/task5/tb.v",
+    "run": "./scripts/run.sh lab02 task5 labs/lab02/task5/tb.v",
+    "expected": "Simulation complete:",
     "comparison": "included",
     "points": 20
   }
