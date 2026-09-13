@@ -101,15 +101,6 @@ class GitManager {
             return null;
         }
     }
-    static async isGhStudentInstalled(workspaceDir) {
-        try {
-            await this.runCommand(workspaceDir, 'gh student --help');
-            return true;
-        }
-        catch {
-            return false;
-        }
-    }
     static async syncTemplates() {
         const repo = await this.getRepository();
         if (!repo) {
@@ -244,14 +235,29 @@ class GitManager {
             }
         });
     }
-    static async submitTask(labName, taskName) {
+    static async submitLab(labName, taskName) {
         const repo = await this.getRepository();
         if (!repo) {
             return;
         }
         const workspaceDir = repo.rootUri.fsPath;
-        const configExists = fs.existsSync(path.join(workspaceDir, '.classroom50.yaml'));
-        const hasGhStudent = await this.isGhStudentInstalled(workspaceDir);
+        const tagName = `submit-${labName}`;
+        // 1. Enforce Single Submission: Check if this lab was already submitted locally or on remote
+        try {
+            const localTag = await this.runGitCommand(workspaceDir, `tag -l "${tagName}"`);
+            if (localTag.trim() === tagName) {
+                vscode.window.showErrorMessage(`⛔ ${labName} has already been submitted (Tag: ${tagName}). Only 1 submission is allowed per lab.`, { modal: true });
+                return;
+            }
+            const remoteTag = await this.runGitCommand(workspaceDir, `ls-remote --tags origin "refs/tags/${tagName}"`);
+            if (remoteTag.trim().length > 0) {
+                vscode.window.showErrorMessage(`⛔ ${labName} was already submitted to GitHub (Tag: ${tagName}). Only 1 submission is allowed per lab.`, { modal: true });
+                return;
+            }
+        }
+        catch (tagErr) {
+            console.log(`Tag pre-check notification: ${tagErr.message || tagErr}`);
+        }
         // Check for SpecStory Copilot Chat history
         const specstoryPath = path.join(workspaceDir, '.specstory');
         let specstoryExists = false;
@@ -267,74 +273,48 @@ class GitManager {
         else {
             vscode.window.showWarningMessage('No Copilot chat history found under .specstory/. Submitting design files only.');
         }
-        // Standard Classroom 50 submission flow
-        if (configExists && hasGhStudent) {
-            await vscode.window.withProgress({
-                location: vscode.ProgressLocation.Notification,
-                title: specstoryExists
-                    ? `Submitting via Classroom 50 (including Copilot history)...`
-                    : `Submitting via Classroom 50...`,
-                cancellable: false
-            }, async (progress) => {
-                try {
-                    progress.report({ message: "Running gh student submit..." });
-                    const stdout = await this.runCommand(workspaceDir, 'gh student submit');
-                    // Parse output to find commit view link
-                    const urlMatch = stdout.match(/https:\/\/github\.com\/[^\s]+/);
-                    const actionsUrl = await this.getActionsUrl(workspaceDir, urlMatch ? urlMatch[0] : undefined);
-                    vscode.window.showInformationMessage(`file submitted correctly. Result in ${actionsUrl}`, 'Open Actions').then(selection => {
-                        if (selection === 'Open Actions') {
-                            vscode.env.openExternal(vscode.Uri.parse(actionsUrl));
-                        }
-                    });
-                }
-                catch (err) {
-                    vscode.window.showErrorMessage(`Classroom 50 submission failed: ${err.message || err}`);
-                }
-            });
-            return;
-        }
-        // Fallback flow: Manual Git staging & pushing
-        const taskRelativePath = path.join('labs', labName, taskName);
-        const commitMessage = `${labName} ${taskName}`;
+        // Submission flow: Staging lab directory, committing, tagging, and pushing
+        const labRelativePath = path.join('labs', labName);
+        const commitMessage = `Submit ${labName}${taskName ? ` (${taskName})` : ''}`;
         await vscode.window.withProgress({
             location: vscode.ProgressLocation.Notification,
             title: specstoryExists
-                ? `Submitting ${labName} ${taskName} (Manual Fallback - including Copilot history)...`
-                : `Submitting ${labName} ${taskName} (Manual Fallback)...`,
+                ? `Submitting ${labName} (including Copilot history)...`
+                : `Submitting ${labName}...`,
             cancellable: false
         }, async (progress) => {
             try {
-                progress.report({ message: "Staging files..." });
-                const stagePath = taskRelativePath.replace(/\\/g, '/');
+                progress.report({ message: `Staging ${labName} files...` });
+                const stagePath = labRelativePath.replace(/\\/g, '/');
                 await this.runGitCommand(workspaceDir, `add "${stagePath}"`);
                 if (specstoryExists) {
                     await this.runGitCommand(workspaceDir, 'add .specstory');
                 }
-                // Check if there are staged changes to commit
+                // Check if there are staged changes to commit or previous commits to tag
                 const status = await this.runGitCommand(workspaceDir, `status --porcelain`);
                 const hasStagedChanges = status.split('\n').some(line => {
                     const code = line.trim().slice(0, 2);
                     return code.startsWith('A') || code.startsWith('M') || code.startsWith('D') || code.startsWith('R');
                 });
-                if (!hasStagedChanges) {
-                    vscode.window.showInformationMessage('No changes found to submit for this task.');
-                    return;
+                if (hasStagedChanges) {
+                    progress.report({ message: "Committing submission..." });
+                    await this.runGitCommand(workspaceDir, `commit -m "${commitMessage}"`);
                 }
-                progress.report({ message: "Committing changes..." });
-                await this.runGitCommand(workspaceDir, `commit -m "${commitMessage}"`);
-                progress.report({ message: "Pushing to GitHub..." });
+                progress.report({ message: `Creating submission tag ${tagName}...` });
+                await this.runGitCommand(workspaceDir, `tag -a "${tagName}" -m "Single submission for ${labName}"`);
+                progress.report({ message: "Pushing branch and submission tag to GitHub..." });
                 const currentBranch = await this.runGitCommand(workspaceDir, 'rev-parse --abbrev-ref HEAD');
                 await this.runGitCommand(workspaceDir, `push origin ${currentBranch}`);
+                await this.runGitCommand(workspaceDir, `push origin refs/tags/${tagName}`);
                 const actionsUrl = await this.getActionsUrl(workspaceDir);
-                vscode.window.showInformationMessage(`file submitted correctly. Result in ${actionsUrl}`, 'Open Actions').then(selection => {
+                vscode.window.showInformationMessage(`🎉 ${labName} submitted successfully (Tag: ${tagName})! Results in ${actionsUrl}`, 'Open Actions').then(selection => {
                     if (selection === 'Open Actions') {
                         vscode.env.openExternal(vscode.Uri.parse(actionsUrl));
                     }
                 });
             }
             catch (err) {
-                vscode.window.showErrorMessage('Submission failed: ' + (err.message || err));
+                vscode.window.showErrorMessage(`Submission failed: ${err.message || err}`);
             }
         });
     }

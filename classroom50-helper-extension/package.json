@@ -73,7 +73,7 @@
         },
         {
           "command": "classroom50.submit",
-          "when": "view == classroom50-navigator && viewItem == task",
+          "when": "view == classroom50-navigator && (viewItem == task || viewItem == lab)",
           "group": "inline@3"
         }
       ],
