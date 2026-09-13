@@ -138,22 +138,10 @@ class GitManager {
             const { owner, repo } = classroomConfig.source;
             templateRemoteUrl = `https://github.com/${owner}/${repo}.git`;
         }
-        // 3. Fallback to settings or user prompt
+        // 3. Fallback to settings or default template URL
         if (!templateRemoteUrl) {
             const config = vscode.workspace.getConfiguration('classroom50');
-            templateRemoteUrl = config.get('templateRemoteUrl') || '';
-            if (!templateRemoteUrl) {
-                templateRemoteUrl = await vscode.window.showInputBox({
-                    prompt: 'Please enter the URL of the central template repository to sync from:',
-                    placeHolder: 'https://github.com/organization/assignment-template.git',
-                    ignoreFocusOut: true
-                }) || '';
-                if (!templateRemoteUrl) {
-                    vscode.window.showWarningMessage('Template Sync canceled: No URL provided.');
-                    return;
-                }
-                await config.update('templateRemoteUrl', templateRemoteUrl, vscode.ConfigurationTarget.Workspace);
-            }
+            templateRemoteUrl = config.get('templateRemoteUrl') || 'https://github.com/f2152026/cs-215-digital-design-labs.git';
         }
         await vscode.window.withProgress({
             location: vscode.ProgressLocation.Notification,
@@ -163,21 +151,36 @@ class GitManager {
             cancellable: false
         }, async (progress) => {
             try {
-                // Add upstream remote if not exists
-                progress.report({ message: "Checking remotes..." });
+                // Configure upstream remote safely (add or update)
+                progress.report({ message: "Configuring upstream remote..." });
                 const remotesList = await this.runGitCommand(workspaceDir, 'remote');
                 const remotes = remotesList.split(/\s+/);
                 if (!remotes.includes('upstream')) {
-                    progress.report({ message: "Adding upstream remote..." });
                     await this.runGitCommand(workspaceDir, `remote add upstream "${templateRemoteUrl}"`);
                 }
-                // Fetch template updates
-                progress.report({ message: "Fetching latest templates..." });
+                else {
+                    await this.runGitCommand(workspaceDir, `remote set-url upstream "${templateRemoteUrl}"`);
+                }
+                // Fetch template updates from upstream
+                progress.report({ message: "Fetching latest templates from upstream..." });
                 await this.runGitCommand(workspaceDir, 'fetch upstream');
-                const branchName = classroomConfig?.source?.branch || 'main';
+                // Determine upstream branch
+                let upstreamBranch = classroomConfig?.source?.branch || 'main';
+                try {
+                    await this.runGitCommand(workspaceDir, `rev-parse --verify upstream/${upstreamBranch}`);
+                }
+                catch {
+                    try {
+                        await this.runGitCommand(workspaceDir, 'rev-parse --verify upstream/master');
+                        upstreamBranch = 'master';
+                    }
+                    catch {
+                        upstreamBranch = 'main';
+                    }
+                }
                 if (targetLab) {
                     // MODE 1: TARGETED DIRECTORY CHECKOUT (SYNC SINGLE LAB)
-                    progress.report({ message: `Backing up ${targetLab} files...` });
+                    progress.report({ message: `Backing up your ${targetLab} files...` });
                     const statusOutput = await this.runGitCommand(workspaceDir, 'status --porcelain');
                     const backup = new Map();
                     if (statusOutput) {
@@ -196,38 +199,56 @@ class GitManager {
                             }
                         }
                     }
-                    progress.report({ message: `Checking out ${targetLab} and tooling...` });
-                    // Checkout target lab directory and common tooling folders from upstream template
-                    await this.runGitCommand(workspaceDir, `checkout upstream/${branchName} -- labs/${targetLab} scripts .devcontainer .vscode`);
-                    // Restore student files for the target lab
+                    progress.report({ message: `Checking out ${targetLab} templates...` });
+                    await this.runGitCommand(workspaceDir, `checkout upstream/${upstreamBranch} -- labs/${targetLab} scripts .devcontainer .vscode`);
+                    // Restore student design files for the target lab
                     if (backup.size > 0) {
-                        progress.report({ message: "Restoring your files..." });
+                        progress.report({ message: "Restoring your design files..." });
                         for (const [relPath, content] of backup.entries()) {
                             const fullPath = path.join(workspaceDir, relPath);
                             fs.mkdirSync(path.dirname(fullPath), { recursive: true });
                             fs.writeFileSync(fullPath, content, 'utf8');
                         }
                     }
-                    vscode.window.showInformationMessage(`Successfully synced ${targetLab.toUpperCase()} templates and course tooling!`);
+                    vscode.window.showInformationMessage(`🎉 Successfully synced ${targetLab.toUpperCase()} templates while preserving your design code!`);
                 }
                 else {
-                    // MODE 2: SYNC COURSE TOOLING (NON-LABS)
-                    progress.report({ message: "Fetching list of non-lab files..." });
+                    // MODE 2: SYNC COURSE TOOLING (EXPLICITLY EXCLUDING LABS)
+                    progress.report({ message: "Scanning non-lab files..." });
                     // List all top-level items in upstream branch
-                    const topLevelStr = await this.runGitCommand(workspaceDir, `ls-tree --name-only upstream/${branchName}`);
+                    const topLevelStr = await this.runGitCommand(workspaceDir, `ls-tree --name-only upstream/${upstreamBranch}`);
                     const topLevelItems = topLevelStr
                         .split(/\r?\n/)
                         .map(item => item.trim())
-                        .filter(item => item.length > 0 && item !== 'labs');
+                        .filter(item => item.length > 0 && item !== 'labs'); // STRICT FILTER: NEVER TOUCH LABS
                     if (topLevelItems.length === 0) {
                         vscode.window.showWarningMessage('No non-lab files found to sync.');
                         return;
                     }
-                    progress.report({ message: "Checking out non-lab folders and files..." });
-                    // Checkout all non-lab top-level items
-                    const checkoutArgs = `checkout upstream/${branchName} -- ` + topLevelItems.map(item => `"${item}"`).join(' ');
+                    progress.report({ message: "Checking out non-lab folders and tooling..." });
+                    const checkoutArgs = `checkout upstream/${upstreamBranch} -- ` + topLevelItems.map(item => `"${item}"`).join(' ');
                     await this.runGitCommand(workspaceDir, checkoutArgs);
-                    vscode.window.showInformationMessage('Successfully synced course configurations and tooling with zero changes to your labs!');
+                    // Stage and commit ONLY the non-lab tooling files to keep working tree clean
+                    progress.report({ message: "Saving tooling sync to Git history..." });
+                    const addArgs = `add ` + topLevelItems.map(item => `"${item}"`).join(' ');
+                    await this.runGitCommand(workspaceDir, addArgs);
+                    const statusOutput = await this.runGitCommand(workspaceDir, 'status --porcelain');
+                    const hasToolingChanges = statusOutput.split('\n').some(line => {
+                        const code = line.trim().slice(0, 2);
+                        const filePath = line.trim().slice(2).trim();
+                        return (code.startsWith('A') || code.startsWith('M') || code.startsWith('D')) && !filePath.startsWith('labs/');
+                    });
+                    if (hasToolingChanges) {
+                        await this.runGitCommand(workspaceDir, 'commit -m "Sync course tooling and configurations from template"');
+                        try {
+                            const currentBranch = await this.runGitCommand(workspaceDir, 'rev-parse --abbrev-ref HEAD');
+                            await this.runGitCommand(workspaceDir, `push origin ${currentBranch}`);
+                        }
+                        catch (pushErr) {
+                            console.log(`Tooling push notice: ${pushErr.message || pushErr}`);
+                        }
+                    }
+                    vscode.window.showInformationMessage('🎉 Successfully synced course tooling (scripts, workflows, extension) with zero changes to your labs folder!');
                 }
             }
             catch (err) {
