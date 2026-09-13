@@ -256,7 +256,7 @@ class GitManager {
             }
         });
     }
-    static async submitLab(labName, taskName) {
+    static async submitLab(labName) {
         const repo = await this.getRepository();
         if (!repo) {
             return;
@@ -296,7 +296,7 @@ class GitManager {
         }
         // Submission flow: Staging lab directory, committing, tagging, and pushing
         const labRelativePath = path.join('labs', labName);
-        const commitMessage = `Submit ${labName}${taskName ? ` (${taskName})` : ''}`;
+        const commitMessage = `Submit ${labName}`;
         await vscode.window.withProgress({
             location: vscode.ProgressLocation.Notification,
             title: specstoryExists

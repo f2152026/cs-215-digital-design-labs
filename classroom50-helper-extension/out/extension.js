@@ -47,17 +47,15 @@ function activate(context) {
             await codeRunner_1.CodeRunner.runCode();
         }
     });
-    // 4. Register Submit Task / Lab command
+    // 4. Register Submit Lab command
     const submitCommand = vscode.commands.registerCommand('classroom50.submit', async (item) => {
         let labName;
-        let taskName;
         if (item) {
             if (item.contextValue === 'lab') {
                 labName = item.label;
             }
             else if (item.contextValue === 'task') {
                 labName = item.parentLab;
-                taskName = item.label;
             }
         }
         else {
@@ -69,20 +67,17 @@ function activate(context) {
                 const pathParts = relativePath.split(/[\\/]/);
                 if (pathParts[0] === 'labs' && pathParts[1]) {
                     labName = pathParts[1];
-                    if (pathParts[2]) {
-                        taskName = pathParts[2];
-                    }
                 }
             }
         }
         if (!labName) {
-            vscode.window.showWarningMessage('Please open a Verilog design file inside a lab folder or select a lab/task from the sidebar.');
+            vscode.window.showWarningMessage('Please open a Verilog design file inside a lab folder or select a lab from the sidebar.');
             return;
         }
         // Ask student for confirmation and emphasize single submission policy
-        const confirm = await vscode.window.showWarningMessage(`⚠️ Are you sure you want to submit ${labName}? You are allowed only 1 submission attempt for this lab.`, { modal: true }, 'Submit');
-        if (confirm === 'Submit') {
-            await gitManager_1.GitManager.submitLab(labName, taskName);
+        const confirm = await vscode.window.showWarningMessage(`⚠️ Are you sure you want to submit all of ${labName.toUpperCase()}? You are allowed only 1 submission attempt for this lab.`, { modal: true }, 'Submit Lab');
+        if (confirm === 'Submit Lab') {
+            await gitManager_1.GitManager.submitLab(labName);
             labTreeProvider.refresh();
         }
     });

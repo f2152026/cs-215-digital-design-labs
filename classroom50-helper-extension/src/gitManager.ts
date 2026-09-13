@@ -248,7 +248,7 @@ export class GitManager {
         });
     }
 
-    public static async submitLab(labName: string, taskName?: string): Promise<void> {
+    public static async submitLab(labName: string): Promise<void> {
         const repo = await this.getRepository();
         if (!repo) { return; }
 
@@ -295,7 +295,7 @@ export class GitManager {
 
         // Submission flow: Staging lab directory, committing, tagging, and pushing
         const labRelativePath = path.join('labs', labName);
-        const commitMessage = `Submit ${labName}${taskName ? ` (${taskName})` : ''}`;
+        const commitMessage = `Submit ${labName}`;
 
         await vscode.window.withProgress({
             location: vscode.ProgressLocation.Notification,
