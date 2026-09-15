@@ -48,35 +48,21 @@ export class CodeRunner {
             return;
         }
 
-        const taskDirPath = path.join(workspaceFolder.uri.fsPath, 'labs', activeLab, activeTask);
-        if (!fs.existsSync(taskDirPath)) {
-            vscode.window.showErrorMessage(`Task directory not found: labs/${activeLab}/${activeTask}`);
-            return;
-        }
-
-        // Locate the student testbench inside the task folder: labs/<lab>/<task>/tb.v (or custom testbench)
-        let tbFileName = 'tb.v';
-        let tbFullPath = path.join(taskDirPath, tbFileName);
+        // Locate the student testbench inside the task folder: labs/<lab>/<task>/tb.v
+        const tbFilePath = path.join('labs', activeLab, activeTask, 'tb.v');
+        const tbFullPath = path.join(workspaceFolder.uri.fsPath, tbFilePath);
         
         if (!fs.existsSync(tbFullPath)) {
-            const files = fs.readdirSync(taskDirPath);
-            const altTb = files.find(f => (f.startsWith('tb') || f.endsWith('_tb.v')) && f.endsWith('.v'));
-            if (altTb) {
-                tbFileName = altTb;
-                tbFullPath = path.join(taskDirPath, tbFileName);
-            } else {
-                vscode.window.showErrorMessage(`Student testbench not found in: labs/${activeLab}/${activeTask} (expected tb.v)`);
-                return;
-            }
+            vscode.window.showErrorMessage(`Student testbench not found at: ${tbFilePath}`);
+            return;
         }
 
         const terminal = this.getTerminal();
         terminal.show();
 
         // Under the hood commands for compilation and execution using unix-like relative paths
-        const tbUnixPath = `labs/${activeLab}/${activeTask}/${tbFileName}`;
-        const compileCmd = `./scripts/compile.sh ${activeLab} ${activeTask} ${tbUnixPath}`;
-        const runCmd = `./scripts/run.sh ${activeLab} ${activeTask} ${tbUnixPath}`;
+        const compileCmd = `./scripts/compile.sh ${activeLab} ${activeTask} labs/${activeLab}/${activeTask}/tb.v`;
+        const runCmd = `./scripts/run.sh ${activeLab} ${activeTask} labs/${activeLab}/${activeTask}/tb.v`;
 
         terminal.sendText(`${compileCmd} && ${runCmd}`);
     }
@@ -111,16 +97,9 @@ export class CodeRunner {
         }
 
         const artefactsLabDir = path.join(workspaceFolder.uri.fsPath, 'artefacts', activeLab);
-        let vcdFilePath = path.join(artefactsLabDir, `${activeTask}_tb.vcd`);
+        const vcdFileName = `${activeTask}_tb.vcd`;
+        const vcdFilePath = path.join(artefactsLabDir, vcdFileName);
         
-        if (!fs.existsSync(vcdFilePath) && fs.existsSync(artefactsLabDir)) {
-            const files = fs.readdirSync(artefactsLabDir);
-            const altVcd = files.find(f => f.startsWith(`${activeTask}_`) && f.endsWith('.vcd'));
-            if (altVcd) {
-                vcdFilePath = path.join(artefactsLabDir, altVcd);
-            }
-        }
-
         if (!fs.existsSync(vcdFilePath)) {
             const runOption = await vscode.window.showWarningMessage(
                 `No waveform (.vcd) file found for ${activeLab} ${activeTask}. Please run the simulation first.`,
