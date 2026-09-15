@@ -1,27 +1,51 @@
-// tb.v
-// Starter testbench template -- YOU complete this file.
+// CS-215 Lab 02 Task 2: T Flip-Flop Testbench
+`timescale 1ns/1ps
 
 module tb;
+  reg clk;
+  reg rst;
+  reg t;
+  wire q;
+  wire q_bar;
 
-  // TODO: declare the inputs and outputs
+  // Instantiate Design Under Test
+  dut uut (
+    .clk(clk),
+    .rst(rst),
+    .t(t),
+    .q(q),
+    .q_bar(q_bar)
+  );
 
-  // TODO: instantiate DUT here
+  // Clock generation: 10ns period (50MHz)
+  always begin
+    #5 clk = ~clk;
+  end
 
-  // Waveform dump configuration (DO NOT CHANGE)
+  // Waveform dump configuration
   string vcd_file;
   initial begin
     if ($value$plusargs("vcd=%s", vcd_file)) begin
       $dumpfile(vcd_file);
-      $dumpvars(0, DUT);
+      $dumpvars(0, uut);
     end
   end
 
   initial begin
-    // TODO: apply different input combinations
+    $display("Starting T Flip-Flop testbench...");
+    
+    // Initialize clock and reset
+    clk = 0;
+    rst = 1;
+    t = 0;
+    
+    // Release reset
+    #10 rst = 0;
 
+    // TODO: Write your test cases here to verify your design
+    // Hint: Apply stimulus signals (t) and observe outputs (q, q_bar) on clock edges
+    
+    $finish;
   end
-
-  initial
-    $monitor($time, " I0=%b I1=%b S=%b | Y=%b", t_i0, t_i1, t_s, t_y); // change as required
 
 endmodule

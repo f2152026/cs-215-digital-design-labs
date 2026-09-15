@@ -1,29 +1,18 @@
-// dut.v
-// Top-level wrapper so the same tb.v can test either implementation.
-// Exactly ONE of the two instantiations below should be uncommented at a
-// time. Comment out the other one, save, and re-run the simulation.
+// CS-215 Lab 02 Task 1: D Flip-Flop Template
+`timescale 1ns/1ps
 
-module DUT (
-  input  I0,
-  input  I1,
-  input  S,
-  output Y
+module dut (
+  input  wire clk,
+  input  wire rst, // Synchronous active-high reset
+  input  wire d,
+  output reg  q,
+  output wire q_bar
 );
 
-  // ---- Option 1: dataflow version ----
-  mux_df U1 (
-    .I0 (I0),
-    .I1 (I1),
-    .S  (S),
-    .Y  (Y)
-  );
+  // Assign q_bar as the negation of q
+  assign q_bar = ~q;
 
-  // ---- Option 2: behavioral version ----
-  // mux_beh U1 (
-  //   .I0 (I0),
-  //   .I1 (I1),
-  //   .S  (S),
-  //   .Y  (Y)
-  // );
+  // TODO: Implement D Flip-Flop logic with synchronous reset
+  // Hint: Use an always block sensitive to the rising edge of clk
 
 endmodule
