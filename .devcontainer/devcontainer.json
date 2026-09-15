@@ -23,5 +23,6 @@
     }
   },
   "remoteUser": "vscode",
-  "postCreateCommand": "chmod +x scripts/*.sh && ./scripts/install_extension.sh"
+  "postCreateCommand": "chmod +x scripts/*.sh && ./scripts/install_extension.sh",
+  "postAttachCommand": "chmod +x scripts/*.sh && ./scripts/install_extension.sh"
 }

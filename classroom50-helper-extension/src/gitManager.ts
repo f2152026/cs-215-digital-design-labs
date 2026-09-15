@@ -196,7 +196,17 @@ export class GitManager {
                         }
                     }
 
-                    vscode.window.showInformationMessage(`🎉 Successfully synced ${targetLab.toUpperCase()} templates while preserving your design code!`);
+                    // Auto-install extension and fix permissions
+                    await this.autoInstallExtension(workspaceDir);
+
+                    vscode.window.showInformationMessage(
+                        `🎉 Successfully synced ${targetLab.toUpperCase()} templates while preserving your design code! Please reload window to refresh all tooling.`,
+                        'Reload Window'
+                    ).then(selection => {
+                        if (selection === 'Reload Window') {
+                            vscode.commands.executeCommand('workbench.action.reloadWindow');
+                        }
+                    });
 
                 } else {
                     // MODE 2: SYNC COURSE TOOLING (EXPLICITLY EXCLUDING LABS)
@@ -217,6 +227,10 @@ export class GitManager {
                     progress.report({ message: "Checking out non-lab folders and tooling..." });
                     const checkoutArgs = `checkout upstream/${upstreamBranch} -- ` + topLevelItems.map(item => `"${item}"`).join(' ');
                     await this.runGitCommand(workspaceDir, checkoutArgs);
+
+                    // Auto-install / re-extract the updated extension and make scripts executable
+                    progress.report({ message: "Reinstalling updated extension and configuring permissions..." });
+                    await this.autoInstallExtension(workspaceDir);
 
                     // Stage and commit ONLY the non-lab tooling files to keep working tree clean
                     progress.report({ message: "Saving tooling sync to Git history..." });
@@ -240,12 +254,36 @@ export class GitManager {
                         }
                     }
                     
-                    vscode.window.showInformationMessage('🎉 Successfully synced course tooling (scripts, workflows, extension) with zero changes to your labs folder!');
+                    vscode.window.showInformationMessage(
+                        '🎉 Successfully synced course tooling and updated the helper extension! Please reload the window to apply the updates.',
+                        'Reload Window'
+                    ).then(selection => {
+                        if (selection === 'Reload Window') {
+                            vscode.commands.executeCommand('workbench.action.reloadWindow');
+                        }
+                    });
                 }
             } catch (err: any) {
                 vscode.window.showErrorMessage(`Sync failed: ${err.message || err}`);
             }
         });
+    }
+
+    private static async autoInstallExtension(workspaceDir: string): Promise<void> {
+        try {
+            await this.runCommand(workspaceDir, 'chmod +x scripts/*.sh');
+        } catch {
+            // Ignore on platforms without chmod
+        }
+
+        try {
+            const installScript = path.join(workspaceDir, 'scripts', 'install_extension.sh');
+            if (fs.existsSync(installScript)) {
+                await this.runCommand(workspaceDir, 'bash scripts/install_extension.sh');
+            }
+        } catch (err: any) {
+            console.log(`Extension auto-install notice: ${err.message || err}`);
+        }
     }
 
     public static async submitLab(labName: string): Promise<void> {

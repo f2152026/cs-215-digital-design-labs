@@ -26,32 +26,41 @@ if command -v code-insiders &> /dev/null; then
 fi
 
 # 2. Filesystem-Level Extraction (Guarantees load in browser Codespaces)
-EXT_DIR_NAME="bits-pilani.classroom50-helper-0.0.1"
+EXT_DIR_NAME="abivankenobi.classroom50-helper-0.0.1"
 
 # We check both vscode-remote and vscode-server extensions directories
 for EXT_DIR in "/home/vscode/.vscode-remote/extensions" "/home/vscode/.vscode-server/extensions"; do
-  mkdir -p "$EXT_DIR"
-  TARGET_PATH="$EXT_DIR/$EXT_DIR_NAME"
-  
-  echo "Extracting VSIX to target: $TARGET_PATH"
-  rm -rf "$TARGET_PATH"
-  mkdir -p "$TARGET_PATH"
-  
-  # Extract VSIX contents (VSIX is a standard ZIP file containing an 'extension' folder)
-  TMP_EXTRACT="/tmp/vsix-extract-$$"
-  mkdir -p "$TMP_EXTRACT"
-  
-  if command -v unzip &> /dev/null; then
-    unzip -q "$VSIX_FILE" -d "$TMP_EXTRACT"
-    cp -r "$TMP_EXTRACT/extension/"* "$TARGET_PATH/"
-  else
-    echo "❌ Error: 'unzip' utility is not installed in the container."
+  if [ -d "$(dirname "$EXT_DIR")" ]; then
+    mkdir -p "$EXT_DIR"
+    
+    # Remove any stale legacy folders
+    rm -rf "$EXT_DIR/bits-pilani.classroom50-helper-0.0.1"
+    
+    TARGET_PATH="$EXT_DIR/$EXT_DIR_NAME"
+    
+    echo "Extracting VSIX to target: $TARGET_PATH"
+    rm -rf "$TARGET_PATH"
+    mkdir -p "$TARGET_PATH"
+    
+    # Extract VSIX contents (VSIX is a standard ZIP file containing an 'extension' folder)
+    TMP_EXTRACT="/tmp/vsix-extract-$$"
+    mkdir -p "$TMP_EXTRACT"
+    
+    if command -v unzip &> /dev/null; then
+      unzip -q -o "$VSIX_FILE" -d "$TMP_EXTRACT"
+      cp -r "$TMP_EXTRACT/extension/"* "$TARGET_PATH/"
+    elif command -v python3 &> /dev/null; then
+      python3 -c "import zipfile; zipfile.ZipFile('$VSIX_FILE').extractall('$TMP_EXTRACT')"
+      cp -r "$TMP_EXTRACT/extension/"* "$TARGET_PATH/"
+    else
+      echo "❌ Error: Neither 'unzip' nor 'python3' is available in the container."
+      rm -rf "$TMP_EXTRACT"
+      exit 1
+    fi
+    
     rm -rf "$TMP_EXTRACT"
-    exit 1
+    echo "✔ Successfully extracted to $TARGET_PATH"
   fi
-  
-  rm -rf "$TMP_EXTRACT"
-  echo "✔ Successfully extracted to $TARGET_PATH"
 done
 
 echo "🎉 Extension installation completed successfully!"
